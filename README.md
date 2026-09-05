@@ -1,6 +1,10 @@
 # App Store, Microsoft Store & Google Play Screenshots Generator
 
+[github.com/johanguse/better-app-store-screenshots](https://github.com/johanguse/better-app-store-screenshots)
+
 A skill for AI coding agents that scaffolds a production-ready TanStack Start editor for App Store, Microsoft Store, and Google Play marketing screenshots. It gives you a connected canvas, real device frames, inspector controls, persistent project state, and one-click export bundles at store-ready sizes.
+
+Heavily inspired by [Parth Jadhav's app-store-screenshots](https://github.com/ParthJadhav/app-store-screenshots) project.
 
 ![Current connected-canvas editor showing a Bloom screenshot deck](example.png)
 
@@ -232,4 +236,4 @@ MIT
 
 ## Author
 
-Created and maintained by Johan Guse.
+Created by Parth Jadhav - Converted to TanStack by Johan Guse.
