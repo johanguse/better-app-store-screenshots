@@ -1,5 +1,5 @@
 import { DEFAULT_LOCALE } from "./locale";
-import { DEFAULT_THEME_ID, PROJECT_SCHEMA_VERSION } from "./constants";
+import { DEFAULT_SCREENSHOT_FONT_ID, DEFAULT_THEME_ID, PROJECT_SCHEMA_VERSION } from "./constants";
 import type { Device, ProjectState, Slide } from "./types";
 
 let _id = 0;
@@ -95,6 +95,33 @@ function tabletStarter(kind: "7" | "10"): Slide[] {
   ];
 }
 
+function desktopStarter(platform: "macOS" | "Windows"): Slide[] {
+  return [
+    {
+      id: nid(),
+      layout: "hero",
+      label: en(`MADE FOR ${platform.toUpperCase()}`),
+      headline: en("Your best work,\nfront and center."),
+      screenshot: "",
+    },
+    {
+      id: nid(),
+      layout: "split-landscape",
+      label: en("FEATURE 01"),
+      headline: en("More room for\nwhat matters."),
+      screenshot: "",
+    },
+    {
+      id: nid(),
+      layout: "device-top",
+      label: en("FEATURE 02"),
+      headline: en("Designed for your desktop."),
+      screenshot: "",
+      inverted: true,
+    },
+  ];
+}
+
 function fgStarter(): Slide[] {
   return [
     {
@@ -111,6 +138,7 @@ export const DEFAULT_PROJECT: ProjectState = {
   schemaVersion: PROJECT_SCHEMA_VERSION,
   appName: "My App",
   themeId: DEFAULT_THEME_ID,
+  fontId: DEFAULT_SCREENSHOT_FONT_ID,
   connectedCanvas: true,
   locales: [DEFAULT_LOCALE],
   locale: DEFAULT_LOCALE,
@@ -124,6 +152,11 @@ export const DEFAULT_PROJECT: ProjectState = {
     "android-7": tabletStarter("7"),
     "android-10": tabletStarter("10"),
     "feature-graphic": fgStarter(),
+    tvos: makeStarterSlides(),
+    watchos: makeStarterSlides(),
+    carplay: makeStarterSlides(),
+    macos: desktopStarter("macOS"),
+    windows: desktopStarter("Windows"),
   },
 };
 
@@ -137,6 +170,13 @@ export function newSlide(layout: Slide["layout"] = "device-bottom"): Slide {
   };
 }
 
-export function detectPlatform(device: Device): "ios" | "android" {
-  return device === "iphone" || device === "ipad" ? "ios" : "android";
+const IOS_DEVICES: ReadonlySet<Device> = new Set<Device>([
+  "iphone", "ipad", "tvos", "watchos", "carplay",
+]);
+const DESKTOP_DEVICES: ReadonlySet<Device> = new Set<Device>(["macos", "windows"]);
+
+export function detectPlatform(device: Device): "ios" | "android" | "desktop" {
+  if (IOS_DEVICES.has(device)) return "ios";
+  if (DESKTOP_DEVICES.has(device)) return "desktop";
+  return "android";
 }

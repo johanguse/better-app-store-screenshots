@@ -1,7 +1,18 @@
 node_modules
-.next
-out
+dist
+.output
+.vinxi
+.tanstack
 .DS_Store
 *.tsbuildinfo
-next-env.d.ts
 .env*.local
+src/routeTree.gen.ts
+coverage
+
+# User-uploaded screenshots land here at runtime. They are the user's assets,
+# not template content, and must never be committed back into the template.
+public/screenshots/uploaded/
+
+# User-imported fonts land here at runtime, same rationale as above.
+public/fonts/imported/*
+!public/fonts/imported/.gitkeep

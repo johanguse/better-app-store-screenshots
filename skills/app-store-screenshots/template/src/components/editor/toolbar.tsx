@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { AlertTriangle, Check, Cloud, Download, UnfoldHorizontal, RotateCcw } from "lucide-react";
+import { AlertTriangle, Check, Cloud, Download, Redo2, RotateCcw, Undo2, UnfoldHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,16 +20,25 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DEVICE_LABEL,
+  SCREENSHOT_FONTS,
   supportsLandscape,
+  THEMES,
 } from "@/lib/constants";
 import { detectPlatform } from "@/lib/defaults";
-import type { Device, Orientation } from "@/lib/types";
+import type { Device, ImportedFont, Orientation, Platform, ScreenshotFontId } from "@/lib/types";
+import { FontImporter } from "./font-importer";
 
 type Props = {
   appName: string;
   setAppName: (v: string) => void;
   connectedCanvas: boolean;
   setConnectedCanvas: (v: boolean) => void;
+  themeId: string;
+  setThemeId: (v: string) => void;
+  fontId: ScreenshotFontId;
+  setFontId: (v: ScreenshotFontId) => void;
+  importedFont?: ImportedFont;
+  setImportedFont: (font: ImportedFont) => void;
   locale: string;
   setLocale: (v: string) => void;
   locales: string[];
@@ -40,6 +49,10 @@ type Props = {
   onExport: () => void;
   onResetAll: () => void;
   onResetDevice: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
   exporting: string | null;
   savedAt: number | null;
   saveError: string | null;
@@ -50,11 +63,13 @@ export function Toolbar(props: Props) {
   const platform = detectPlatform(props.device);
   const hasLandscape = supportsLandscape(props.device);
   const [resetOpen, setResetOpen] = React.useState(false);
+  const themes = Object.values(THEMES);
 
-  // Track last device per platform so iOS/Android tabs preserve user's choice.
-  const lastByPlatform = React.useRef<{ ios: Device; android: Device }>({
+  // Track last device per platform so iOS/Android/Desktop tabs preserve user's choice.
+  const lastByPlatform = React.useRef<Record<Platform, Device>>({
     ios: platform === "ios" ? props.device : "iphone",
     android: platform === "android" ? props.device : "android",
+    desktop: platform === "desktop" ? props.device : "macos",
   });
   React.useEffect(() => {
     lastByPlatform.current[platform] = props.device;
@@ -98,12 +113,58 @@ export function Toolbar(props: Props) {
 
       <span aria-hidden className="mx-1 h-5 w-px bg-border" />
 
+      <Select value={props.themeId} onValueChange={props.setThemeId} disabled={props.busy}>
+        <SelectTrigger className="h-8 w-40 text-xs">
+          <SelectValue placeholder="Theme" />
+        </SelectTrigger>
+        <SelectContent>
+          {themes.map((theme) => (
+            <SelectItem key={theme.id} value={theme.id}>
+              <span className="flex items-center gap-1.5">
+                <span
+                  aria-hidden
+                  className="h-3 w-3 shrink-0 rounded-full border"
+                  style={{ background: theme.bg, borderColor: theme.accent }}
+                />
+                {theme.name}
+              </span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={props.fontId}
+        onValueChange={(v) => props.setFontId(v as ScreenshotFontId)}
+        disabled={props.busy}
+      >
+        <SelectTrigger className="h-8 w-44 text-xs">
+          <SelectValue placeholder="Font" />
+        </SelectTrigger>
+        <SelectContent>
+          {Object.entries(SCREENSHOT_FONTS).map(([id, font]) => (
+            <SelectItem key={id} value={id}>
+              {font.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {props.fontId === "self-hosted" && (
+        <FontImporter
+          disabled={props.busy}
+          importedFont={props.importedFont}
+          onImported={props.setImportedFont}
+        />
+      )}
+
+      <span aria-hidden className="mx-1 h-5 w-px bg-border" />
+
       <Tabs
         value={platform}
         onValueChange={(p) => {
           if (props.busy) return;
-          const next = p === "ios" ? lastByPlatform.current.ios : lastByPlatform.current.android;
-          props.setDevice(next);
+          props.setDevice(lastByPlatform.current[p as Platform]);
         }}
       >
         <TabsList className="h-8 p-0.5">
@@ -112,6 +173,9 @@ export function Toolbar(props: Props) {
           </TabsTrigger>
           <TabsTrigger value="android" className="h-7 px-3 text-xs" disabled={props.busy}>
             Android
+          </TabsTrigger>
+          <TabsTrigger value="desktop" className="h-7 px-3 text-xs" disabled={props.busy}>
+            Desktop
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -129,13 +193,21 @@ export function Toolbar(props: Props) {
             <>
               <SelectItem value="iphone">{DEVICE_LABEL.iphone}</SelectItem>
               <SelectItem value="ipad">{DEVICE_LABEL.ipad}</SelectItem>
+              <SelectItem value="tvos">{DEVICE_LABEL.tvos}</SelectItem>
+              <SelectItem value="watchos">{DEVICE_LABEL.watchos}</SelectItem>
+              <SelectItem value="carplay">{DEVICE_LABEL.carplay}</SelectItem>
             </>
-          ) : (
+          ) : platform === "android" ? (
             <>
               <SelectItem value="android">{DEVICE_LABEL.android}</SelectItem>
               <SelectItem value="android-7">{DEVICE_LABEL["android-7"]}</SelectItem>
               <SelectItem value="android-10">{DEVICE_LABEL["android-10"]}</SelectItem>
               <SelectItem value="feature-graphic">{DEVICE_LABEL["feature-graphic"]}</SelectItem>
+            </>
+          ) : (
+            <>
+              <SelectItem value="macos">{DEVICE_LABEL.macos}</SelectItem>
+              <SelectItem value="windows">{DEVICE_LABEL.windows}</SelectItem>
             </>
           )}
         </SelectContent>
@@ -175,6 +247,28 @@ export function Toolbar(props: Props) {
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <SaveStatus savedAt={props.savedAt} saveError={props.saveError} />
         <span aria-hidden className="h-5 w-px bg-border" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={props.onUndo}
+          title="Undo (⌘Z)"
+          aria-label="Undo"
+          disabled={props.busy || !props.canUndo}
+        >
+          <Undo2 className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={props.onRedo}
+          title="Redo (⌘⇧Z)"
+          aria-label="Redo"
+          disabled={props.busy || !props.canRedo}
+        >
+          <Redo2 className="h-4 w-4" />
+        </Button>
         <Button
           variant="ghost"
           size="icon"

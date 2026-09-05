@@ -275,6 +275,180 @@ export function IPad({ src, alt = "", style, hideEmpty }: FrameProps) {
   );
 }
 
+// ---------- Apple TV ----------
+// The screenshot IS the content, so there is no device UI to draw. A thin dark
+// bezel reads as "TV" without competing with the capture. `bare` renders the
+// capture edge-to-edge with no bezel at all.
+export function AppleTV({ src, alt = "", style, hideEmpty, bare }: FrameProps & { bare?: boolean }) {
+  const resolved = img(src);
+  return (
+    <div style={{ position: "relative", aspectRatio: "16 / 9", ...style }}>
+      <div
+        style={{
+          width: "100%", height: "100%",
+          borderRadius: bare ? "0.6% / 1.1%" : "1.1% / 2.0%",
+          background: bare ? "transparent" : "#0A0A0C",
+          padding: bare ? "0" : "0.9%",
+          boxSizing: "border-box",
+          boxShadow: bare
+            ? "0 18px 60px rgba(0,0,0,0.28)"
+            : "0 22px 70px rgba(0,0,0,0.40), inset 0 0 0 1px rgba(255,255,255,0.06)",
+          overflow: "hidden",
+        }}
+      >
+        <div style={{ width: "100%", height: "100%", overflow: "hidden", background: "#111",
+                      borderRadius: bare ? "0.6% / 1.1%" : "0.5% / 0.9%" }}>
+          {resolved ? (
+            <img src={resolved} alt={alt} draggable={false}
+                 style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }} />
+          ) : hideEmpty ? null : (<EmptySlot />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Apple Watch ----------
+// Cushion-shaped body with a very large corner radius, plus the digital crown and
+// side button on the right. The bezel is proportionally much thicker than a phone's,
+// which is what makes a watch read as a watch at small sizes.
+export function AppleWatch({ src, alt = "", style, hideEmpty }: FrameProps) {
+  const resolved = img(src);
+  return (
+    <div style={{ position: "relative", aspectRatio: "422 / 514", ...style }}>
+      {/* crown + side button */}
+      <div style={{ position: "absolute", right: "-2.6%", top: "27%", width: "3.4%", height: "12%",
+                    background: "linear-gradient(180deg,#8E8E93,#5A5A5E)", borderRadius: "40%" }} />
+      <div style={{ position: "absolute", right: "-1.8%", top: "45%", width: "2.4%", height: "14%",
+                    background: "linear-gradient(180deg,#6E6E73,#48484A)", borderRadius: "40%" }} />
+      <div
+        style={{
+          width: "100%", height: "100%",
+          borderRadius: "26% / 21%",
+          background: "#0A0A0C",
+          padding: "6.5%",
+          boxSizing: "border-box",
+          boxShadow: "0 18px 50px rgba(0,0,0,0.42), inset 0 0 0 1px rgba(255,255,255,0.08)",
+          overflow: "hidden",
+        }}
+      >
+        <div style={{ width: "100%", height: "100%", overflow: "hidden", background: "#000",
+                      borderRadius: "22% / 18%" }}>
+          {resolved ? (
+            <img src={resolved} alt={alt} draggable={false}
+                 style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }} />
+          ) : hideEmpty ? null : (<EmptySlot />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- CarPlay ----------
+// A dashboard head unit: wide, squared-off, minimal bezel. Deliberately plainer than
+// the TV frame because CarPlay screens are set into a fascia rather than being a
+// product silhouette anyone recognises.
+export function CarPlayScreen({ src, alt = "", style, hideEmpty }: FrameProps) {
+  const resolved = img(src);
+  return (
+    <div style={{ position: "relative", aspectRatio: "800 / 480", ...style }}>
+      <div
+        style={{
+          width: "100%", height: "100%",
+          borderRadius: "2.2% / 3.6%",
+          background: "#0B0B0D",
+          padding: "1.6%",
+          boxSizing: "border-box",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.40), inset 0 0 0 1px rgba(255,255,255,0.07)",
+          overflow: "hidden",
+        }}
+      >
+        <div style={{ width: "100%", height: "100%", overflow: "hidden", background: "#000",
+                      borderRadius: "1.4% / 2.3%" }}>
+          {resolved ? (
+            <img src={resolved} alt={alt} draggable={false}
+                 style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }} />
+          ) : hideEmpty ? null : (<EmptySlot />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Desktop (macOS / Windows) ----------
+export function MacOSWindow(props: FrameProps) {
+  return <DesktopWindow {...props} platform="macos" />;
+}
+
+export function WindowsWindow(props: FrameProps) {
+  return <DesktopWindow {...props} platform="windows" />;
+}
+
+function DesktopWindow({
+  src,
+  alt = "",
+  style,
+  hideEmpty,
+  platform,
+}: FrameProps & { platform: "macos" | "windows" }) {
+  const resolved = img(src);
+  const isMac = platform === "macos";
+  return (
+    <div style={{ position: "relative", aspectRatio: isMac ? "16 / 10" : "16 / 9", ...style }}>
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          borderRadius: isMac ? "2.2% / 3.5%" : "1.2% / 2.1%",
+          background: isMac ? "#d8d8dc" : "#e8e8e8",
+          boxShadow: "0 18px 60px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(0,0,0,0.18)",
+          overflow: "hidden",
+          position: "relative",
+        }}
+      >
+        <div
+          style={{
+            height: "7%",
+            display: "flex",
+            alignItems: "center",
+            padding: "0 1.4%",
+            background: isMac ? "linear-gradient(#f4f4f5, #dedee1)" : "#f3f3f3",
+            borderBottom: "1px solid rgba(0,0,0,0.15)",
+          }}
+        >
+          {isMac ? (
+            <div style={{ display: "flex", gap: "0.55%", width: "100%" }}>
+              {["#ff5f57", "#febc2e", "#28c840"].map((color) => (
+                <span key={color} style={{ width: "1.15%", aspectRatio: "1", borderRadius: "50%", background: color }} />
+              ))}
+            </div>
+          ) : (
+            <>
+              <span style={{ width: "1.1%", aspectRatio: "1", background: "#0078d4", marginRight: "1%" }} />
+              <span style={{ width: "25%", height: "34%", borderRadius: 3, background: "rgba(0,0,0,0.08)" }} />
+              <div style={{ marginLeft: "auto", display: "flex", gap: "1.8em", fontSize: "min(1.4vw, 18px)", color: "#333" }}>
+                <span>−</span><span>□</span><span>×</span>
+              </div>
+            </>
+          )}
+        </div>
+        <div style={{ width: "100%", height: "93%", overflow: "hidden", background: "#111" }}>
+          {resolved ? (
+            <img
+              src={resolved}
+              alt={alt}
+              style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }}
+              draggable={false}
+            />
+          ) : hideEmpty ? null : (
+            <EmptySlot />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EmptySlot() {
   return (
     <div

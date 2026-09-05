@@ -39,7 +39,7 @@ Usually not a fit:
 
 ## Testing Changes
 
-There is no traditional automated test suite in this repository, so use a manual smoke-test checklist.
+The scaffolded template (`skills/app-store-screenshots/template/`) has a Vitest suite covering pure-logic modules (`src/lib/*.test.ts`) — run it with `bun test` (or `bun test:watch` while iterating, and `bun typecheck` for type errors) from that directory before opening a PR that touches `src/lib/`. It does not cover UI/editor behavior, so pair it with the manual smoke-test checklist below for anything user-facing.
 
 ### For README-only changes
 
