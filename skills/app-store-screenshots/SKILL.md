@@ -1,30 +1,38 @@
 ---
 name: app-store-screenshots
-description: Use when building App Store or Google Play screenshot pages, generating exportable marketing screenshots for iOS and/or Android apps, or scaffolding a screenshot editor with Next.js. Triggers on app store, play store, screenshots, marketing assets, html-to-image, phone mockup, android screenshots, feature graphic.
+description: Use when building App Store, Microsoft Store, or Google Play screenshot pages, generating exportable marketing screenshots for iOS, Android, macOS, and/or Windows apps, or scaffolding a screenshot editor with TanStack Start. Triggers on app store, play store, microsoft store, screenshots, marketing assets, html-to-image, device mockup, desktop screenshots, feature graphic.
 ---
 
-# App Store & Google Play Screenshots Generator
+# App Store, Microsoft Store & Google Play Screenshots Generator
 
 ## Overview
 
-Scaffold a pre-built Next.js + ShadCN editor that lets the user design and export App Store **and** Google Play screenshots as **advertisements** (not UI showcases). The editor handles all the heavy lifting:
+Scaffold a pre-built TanStack Start + ShadCN editor that lets the user design and export App Store, Microsoft Store, **and** Google Play screenshots as **advertisements** (not UI showcases). The editor handles all the heavy lifting:
 
 - Connected live preview at the canvas's true resolution (scaled to fit)
 - Drag-to-reorder screens, inline text editing, layout switcher per screen
 - Cross-screen mockups: phone/device frames, captions, and layered elements can be moved across adjacent screens, then exported as clipped crops
 - Drop-target screenshot picker (file → saved to `public/screenshots/uploaded/<hash>.png`)
 - Auto-save to **`app-store-screenshots.json`** at the project root (git-trackable) + `localStorage` mirror
-- Easy iOS ↔ Android platform switch — separate slide decks live side by side
-- One-click bulk PNG export at every Apple/Google-required resolution via `html-to-image`
+- Easy iOS ↔ Android ↔ Desktop platform switch — separate slide decks live side by side
+- One-click bulk PNG export at every Apple/Microsoft/Google-required resolution via `html-to-image`
 - Light/dark variant toggle per slide, theme presets, locale select
+- Per-slide custom background colors, live theme and font selection, and importing licensed WOFF2/WOFF/TTF/OTF fonts
+- Image overlay elements with drag/resize/rotation/layering controls and directional edge fades
+- Toolbar Undo/Redo with 50-step in-session history
 - Guided in-place migration for older projects created by this skill; passive and explicit migrations keep legacy decks isolated until the user intentionally opts into connected canvas
 
 Supported devices out of the box:
 - **iPhone** (portrait) — Apple App Store
 - **iPad** (portrait) — Apple App Store
+- **Apple TV** (landscape) — Apple App Store
+- **Apple Watch** (portrait) — Apple App Store
+- **CarPlay** (landscape) — exports into an **iPhone** slot, see below
 - **Android Phone** (portrait) — Google Play
 - **Android Tablet 7"** (portrait + landscape) — Google Play
 - **Android Tablet 10"** (portrait + landscape) — Google Play
+- **macOS** (16:10 desktop window) — Mac App Store and product listings
+- **Windows** (16:9 desktop window) — Microsoft Store and product listings
 - **Feature Graphic** (1024×500 banner) — Google Play store listing header
 
 ## Core Principle
@@ -39,11 +47,11 @@ Supported devices out of the box:
 4. (Optionally) prefills `app-store-screenshots.json` with the user's app name, starting copy, screenshots, and connected-canvas preference so the first preview is meaningful.
 5. Starts the dev server and tells the user to open the editor in the browser.
 
-You should NOT write `page.tsx`, device frames, or export logic by hand. They live in the template.
+You should NOT write `routes/index.tsx`, device frames, or export logic by hand. They live in the template.
 
 ## Step 0: Probe for Existing Screenshot Projects
 
-Before asking the new-project questions in Step 1, always inspect the current working directory for an existing app-store-screenshots implementation.
+Before asking the new-project questions in Step 1, always inspect the current working directory for an existing app-store-screenshots implementation. The directory is always in exactly one of three states — determine which before deciding what to do next.
 
 Run lightweight probes:
 
@@ -52,23 +60,37 @@ test -f package.json && sed -n '1,220p' package.json
 test -f app-store-screenshots.json && sed -n '1,120p' app-store-screenshots.json
 rg -n "app-store-screenshots|html-to-image|toPng|ScreenshotEditor|DeckCanvas|connectedCanvas|EXPORT_SIZES|mockup.png|PHONE_SCREEN" package.json src app public 2>/dev/null
 find public -maxdepth 4 \( -path "*/screenshots*" -o -name "mockup.png" -o -name "app-icon.png" \) -print 2>/dev/null
+test -d src/app && echo "HAS_NEXT_APP_DIR"
+test -f src/routes/index.tsx && echo "HAS_TANSTACK_ROUTES"
 ```
 
-Treat the project as an older implementation when any of these are true:
+**State A — Fresh.** None of the probes find an existing implementation (no `app-store-screenshots.json`, no `ScreenshotEditor`/`DeckCanvas` references, no legacy screenshot asset layout). Skip straight to Step 1; there is nothing to migrate.
+
+**State B — Legacy (old schema or old Next.js-era template).** Any of these are true:
 
 - `app-store-screenshots.json` exists but has no `schemaVersion`, has `schemaVersion < 2`, or lacks `connectedCanvas`.
 - `src/components/editor/screenshot-editor.tsx` exists but the editor does not reference `DeckCanvas` or `connectedCanvas`.
-- `src/app/page.tsx` contains a previous all-in-one generator (`html-to-image`, `toPng`, `EXPORT_SIZES`, `PHONE_SCREEN`, hardcoded slide arrays/themes).
-- The repo contains the old screenshot asset layout (`public/mockup.png`, `public/screenshots...`) plus a screenshot generator package setup.
+- `src/app/page.tsx` exists (the old Next.js `app/` router directory), whether it's a previous all-in-one generator (`html-to-image`, `toPng`, `EXPORT_SIZES`, `PHONE_SCREEN`, hardcoded slide arrays/themes) or an earlier copy of this skill's own Next.js-based template.
+- The repo contains the old screenshot asset layout (`public/mockup.png`, `public/screenshots...`) plus a screenshot generator package setup, but no `src/routes/` directory.
 
-If an older implementation is detected, ask exactly one question before doing anything else:
+Ask exactly one question before doing anything else:
 
-> I found an older App Store screenshots project here. Do you want me to migrate this existing project to the new connected-canvas editor?
+> I found an older App Store screenshots project here (pre-TanStack / pre-connected-canvas). Do you want me to migrate this existing project to the current editor?
 >
 > 1. Yes — migrate the existing project to the new editor
 > 2. No — set up or modify a project another way
 
 If the user chooses **Yes**, do **not** ask the Step 1 questionnaire. Run the migration path below using the files already in the repo. If the user chooses **No**, continue to Step 1.
+
+**State C — Current (already on this TanStack template).** `app-store-screenshots.json` has `schemaVersion >= 2` and an explicit `connectedCanvas`, and `src/routes/index.tsx` plus a `DeckCanvas`/`connectedCanvas`-referencing `screenshot-editor.tsx` are already present. There is nothing to scaffold or migrate — re-running Step 1/Step 2 here would overwrite a working project with template samples. Instead, ask what the user wants:
+
+> This directory already has an up-to-date app-store-screenshots project. What would you like to do?
+>
+> 1. Keep editing the existing deck (start the dev server and open the editor)
+> 2. Add or update specific screens/copy (tell me what to change)
+> 3. Something else (describe it)
+
+Do not proceed to Step 1's new-project questionnaire or Step 2's template copy for State C unless the user explicitly asks to reset or re-scaffold — confirm that intent first, since it discards the existing deck.
 
 ### Migration Path (When User Says Yes)
 
@@ -94,7 +116,7 @@ Recommended migration sequence:
 STAMP=$(date +%Y%m%d-%H%M%S)
 BACKUP_DIR="/tmp/app-store-screenshots-migration-$STAMP"
 mkdir -p "$BACKUP_DIR"
-cp -R app-store-screenshots.json public src package.json tailwind.config.ts next.config.mjs "$BACKUP_DIR/" 2>/dev/null || true
+cp -R app-store-screenshots.json public src package.json tailwind.config.ts vite.config.ts "$BACKUP_DIR/" 2>/dev/null || true
 
 # 2. Preserve project state and assets that must survive template copy.
 PRESERVE_DIR="$BACKUP_DIR/preserve"
@@ -120,7 +142,7 @@ fi
 cp "$PRESERVE_DIR/app-icon.png" public/app-icon.png 2>/dev/null || true
 ```
 
-After copying, upgrade or create `app-store-screenshots.json`. If an existing project file exists, coerce it in place. If no project file exists but old slide data is embedded in `src/lib/defaults.ts` or `src/app/page.tsx`, extract it best-effort into the template's project JSON before falling back to starter slides. Prefer old arrays or objects named `slides`, `screens`, `features`, `defaultSlides`, `appName`, `tagline`, `theme`, and screenshot paths. If the old implementation only has image files, sort `public/screenshots/**` by path and seed slides from those files.
+After copying, upgrade or create `app-store-screenshots.json`. If an existing project file exists, coerce it in place. If no project file exists but old slide data is embedded in `src/lib/defaults.ts` or an old all-in-one page component (`src/app/page.tsx` for a Next.js-era implementation, or `src/routes/index.tsx` for an earlier TanStack-era one), extract it best-effort into the template's project JSON before falling back to starter slides. Prefer old arrays or objects named `slides`, `screens`, `features`, `defaultSlides`, `appName`, `tagline`, `theme`, and screenshot paths. If the old implementation only has image files, sort `public/screenshots/**` by path and seed slides from those files.
 
 Use a small JSON script like this for the final project-state coercion:
 
@@ -131,7 +153,7 @@ const path = require("path");
 
 const PROJECT_FILE = "app-store-screenshots.json";
 const DEFAULT_LOCALE = "en";
-const DEVICE_KEYS = ["iphone", "ipad", "android", "android-7", "android-10", "feature-graphic"];
+const DEVICE_KEYS = ["iphone", "ipad", "tvos", "watchos", "carplay", "android", "android-7", "android-10", "macos", "windows", "feature-graphic"];
 const LAYOUTS = ["hero", "device-bottom", "device-top", "two-devices", "no-device", "split-landscape", "feature-graphic"];
 
 function readJson(file) {
@@ -317,12 +339,7 @@ Ask the user these. Do not proceed until you have answers:
 
 1. **App screenshots** — "Do you already have screenshots of the devices?"
    - If **yes**: ask "Where are your app screenshots? (PNG files of actual device captures)" and proceed.
-   - If **no** and the app is **iOS + Swift**: offer the companion capture skill — "Want to capture them automatically with the `ios-marketing-capture` skill (https://github.com/ParthJadhav/ios-marketing-capture)?" If they say yes, install it with:
-     ```bash
-     npx skills add ParthJadhav/ios-marketing-capture
-     ```
-     Then have them run that skill first to generate the screenshots before continuing here.
-   - If **no** and the app is **not iOS + Swift** (e.g. Android, React Native, Flutter, web): the capture skill won't work — the user needs to capture screenshots manually (simulator/device screenshots) before continuing.
+   - If **no**: the user needs to capture screenshots manually (simulator/device screenshots, or App Store Connect for an existing listing) before continuing.
 2. **App icon** — "Where is your app icon PNG?"
 3. **App name** — "What's the app called?"
 4. **Feature list** — "List your app's features in priority order. What's the #1 thing your app does?"
@@ -453,7 +470,7 @@ Vary the `layout` field across slides. The editor exposes:
 - `device-top` — flipped, device above caption (good contrast slide)
 - `two-devices` — back + front phones layered
 - `no-device` — big standalone headline (use sparingly)
-- `split-landscape` — caption left + device right (tablet landscape only)
+- `split-landscape` — caption left + device right (tablet landscape and desktop)
 - `feature-graphic` — Play Store banner (1024×500)
 
 Never repeat the same layout twice in a row. Use 1-2 `inverted` (dark) slides for visual rhythm.
@@ -613,13 +630,13 @@ If exports come out blank or with black screen rectangles:
 
 | Mistake | Fix |
 |---------|-----|
-| Edited `page.tsx` instead of using the editor | Roll back the edit; let users iterate in the browser |
+| Edited `routes/index.tsx` instead of using the editor | Roll back the edit; let users iterate in the browser |
 | Tried to rebuild device frames from scratch | They're in `src/components/editor/device-frames.tsx` — modify there |
 | Pasted screenshots into git directly | `public/screenshots/...` is fine to commit. Drop-target uploads are now also written to `public/screenshots/uploaded/<hash>.png` — commit both that folder **and** `app-store-screenshots.json` so collaborators reproduce your deck after `git clone`. |
 | Wrong directory layout for tablet screenshots | See Step 2 — `android/tablet-7/portrait/{locale}/...` etc. |
 | Reset wiped the deck | Reset clears in-memory state and re-saves defaults to `app-store-screenshots.json`. Recover by `git checkout app-store-screenshots.json` if it was committed, or export first before resetting. |
 | Export is blank | Source PNGs probably have alpha — flatten to RGB |
-| `bun dev` port collision | Template defaults to `next dev`; let Next pick the next free port (3001+) |
+| `bun dev` port collision | Template's Vite dev server defaults to port 3000 but auto-increments on collision; read the actual port from the dev-server output and quote it |
 
 ## Project Migration
 
@@ -647,7 +664,8 @@ The template structure (after copy):
 project/
 ├── package.json
 ├── tsconfig.json
-├── next.config.mjs
+├── vite.config.ts                # TanStack Start + Nitro (Node target) + React plugins
+├── vitest.config.ts               # jsdom test environment for src/lib/*.test.ts
 ├── tailwind.config.ts
 ├── postcss.config.mjs
 ├── components.json              # ShadCN config (for future `shadcn add`)
@@ -656,28 +674,43 @@ project/
 │   ├── app-icon.png             # → user supplies
 │   └── screenshots/...
 └── src/
-    ├── app/
-    │   ├── layout.tsx           # Font + root layout
-    │   ├── page.tsx             # Renders <ScreenshotEditor />
-    │   └── globals.css          # Tailwind + ShadCN tokens
+    ├── router.tsx                # createRouter()
+    ├── routes/
+    │   ├── __root.tsx           # HTML shell, font preload, globals.css import
+    │   ├── index.tsx            # Renders <ScreenshotEditor />
+    │   └── api/
+    │       ├── project.ts       # GET/POST app-store-screenshots.json (CSRF/origin-guarded)
+    │       ├── upload.ts        # POST screenshot uploads (CSRF/origin-guarded, magic-byte sniffed)
+    │       └── upload-font.ts   # POST imported fonts (CSRF/origin-guarded, magic-byte sniffed)
+    ├── test/
+    │   └── setup.ts             # @testing-library/jest-dom/vitest
+    ├── globals.css               # Tailwind + ShadCN tokens
     ├── components/
     │   ├── editor/
     │   │   ├── screenshot-editor.tsx   # Top-level editor (state, autosave, export)
-    │   │   ├── toolbar.tsx             # Platform tabs, device select, theme, locale, export
+    │   │   ├── toolbar.tsx             # Platform tabs, device select, theme, font, locale, export
     │   │   ├── sidebar.tsx             # Screen list with @dnd-kit reordering
     │   │   ├── slide-thumb.tsx         # Draggable screen card
     │   │   ├── preview-stage.tsx       # ResizeObserver-scaled connected canvas
-    │   │   ├── inspector.tsx           # Right-pane controls for active slide
+    │   │   ├── inspector.tsx           # Right-pane controls for active slide (text, image elements)
+    │   │   ├── background-controls.tsx # Per-slide theme/alternate/custom background color
+    │   │   ├── font-importer.tsx       # WOFF2/WOFF/TTF/OTF font upload
     │   │   ├── screenshot-picker.tsx   # File drop + picker
+    │   │   ├── create-image-mask.ts    # Edge-fade gradient mask for image elements
     │   │   ├── slide-canvas.tsx        # Data-driven screen/deck renderer (all layouts)
-    │   │   └── device-frames.tsx       # Phone, AndroidPhone, IPad, tablets
+    │   │   └── device-frames.tsx       # Phone, AndroidPhone, IPad, TV/Watch/CarPlay, macOS/Windows
     │   └── ui/                         # Minimal ShadCN primitives (button, select, etc.)
     └── lib/
         ├── constants.ts                # Canvas sizes, export sizes, themes, frame ratios
         ├── defaults.ts                 # Initial slide decks per device
         ├── types.ts                    # Slide / ProjectState / Theme types
-        ├── storage.ts                  # useProject() — localStorage autosave hook
+        ├── storage.ts                  # useProject() — localStorage + disk autosave hook
         ├── image-cache.ts              # preloadImages + img() helper
+        ├── typography.ts               # Per-slide label/headline/app-name scale
+        ├── request-guard.ts            # rejectCrossSiteWrite, sniffImageType, sniffFontType
+        ├── preflight.ts                # runPreflight() — pre-export validation report
+        ├── clean-hex-color.ts          # Custom background color validation
+        ├── clean-imported-font.ts      # Imported font path/format validation
         └── utils.ts                    # cn() helper
 ```
 
@@ -685,16 +718,89 @@ project/
 
 When you finish scaffolding, **start the dev server** (`bun dev` / `pnpm dev` / `yarn dev` / `npm run dev`) and then tell the user the following, in this order:
 
-1. **The server is running at `http://localhost:3000`** (or whichever port Next picked — read it from the dev server output and quote the actual URL). Tell them to open it in the browser.
+1. **The server is running at `http://localhost:3000`** (or whichever port Vite picked if 3000 was taken — read it from the dev server output and quote the actual URL). Tell them to open it in the browser.
 2. **How to run it next time** — give them the exact two-command recipe for their package manager:
    ```bash
    bun install   # only needed the first time, or after pulling new deps
    bun dev       # → http://localhost:3000
    ```
    Substitute `pnpm` / `yarn` / `npm run` as appropriate for what was detected in Step 2.
-3. Which platforms have starter decks seeded (iOS, Android, or both).
+3. Which platforms have starter decks seeded (iOS, Android, Desktop, or a combination).
 4. Any user-supplied screenshots that didn't match the expected filenames (so they can rename or use the in-editor drop target).
 5. Point them at the **Export bundle** button once they're happy with the layouts.
 6. **Invite further edits:** say something like _"Feel free to ask me to make any changes you'd like to the screenshots — copy, layout, palette, anything. I can iterate with you."_
-7. **Showcase callout** (always include this, verbatim spirit):
-   > Check out apps generated by this skill here: https://www.parthjadhav.com/products/app-store-screenshots — and tag **@parthjadhav8** on Twitter if you want your app to be added to the showcase.
+
+## Verifying an export — REQUIRED
+
+**The exporter intermittently drops the screenshot inside the device frame.** You get a perfect headline, background and frame with a blank device screen, no error, and a correct on-canvas preview. A different slide can fail each run, and the *same* slide can drop at one export size while rendering correctly at another in the same run. Root cause not established.
+
+**After every export, run:**
+
+```
+~/.claude/skills/app-store-screenshots/verify-export <export-dir>
+```
+
+It counts unique colours per file against its same-size siblings (a dropped screenshot loses tens of thousands of colours — measured: ~4,000 dropped vs 32,000–290,000 intact) and writes one contact sheet per size into `_contact-sheets/`.
+
+**Then open the sheets and look.** The count is triage, not proof. Automated brightness/colourfulness detectors give false readings in both directions. A missing screenshot is unmissable beside its siblings on a contact sheet and easy to miss when opening files one at a time.
+
+**Do not track the contact sheets, and never read one you did not just generate.** They are derived from the PNGs beside them and regenerate in seconds. A sheet left over from an earlier export will show a good slide for a file that has since been re-exported and broken — worse than no sheet at all.
+
+**If a file is flagged, re-export and re-check.** Which slide fails reshuffles between runs, so assemble the final deck from whichever renders come out clean.
+
+## Apple device notes
+
+Every dimension below was read from App Store Connect's own metadata with
+`asc screenshots sizes --all`, not from documentation or blog posts. Re-derive it
+the same way rather than trusting this list if Apple changes the slots.
+
+| Device | Display type | Accepted sizes | Orientation |
+|---|---|---|---|
+| Apple TV | `APP_APPLE_TV` | 3840×2160, 1920×1080 | landscape only |
+| Apple Watch | `APP_WATCH_ULTRA` | 422×514, 410×502 | portrait only |
+| Apple Watch | `APP_WATCH_SERIES_10` | 416×496 | portrait only |
+| Apple Watch | `APP_WATCH_SERIES_7` | 396×484 | portrait only |
+| Apple Watch | `APP_WATCH_SERIES_4` | 368×448 | portrait only |
+| Apple Watch | `APP_WATCH_SERIES_3` | 312×390 | portrait only |
+
+### CarPlay has no App Store screenshot slot
+
+There is **no CarPlay display type in App Store Connect** — the accepted types are
+Apple TV, Vision Pro, Desktop, iPad, iPhone, Watch and iMessage, and nothing else. A
+CarPlay app ships inside its iPhone app, so a CarPlay screenshot is submitted **in an
+iPhone slot**.
+
+The `carplay` device therefore exists to give you a *head-unit frame on an
+iPhone-sized canvas*, which is what apps with CarPlay support actually publish. Its
+export sizes are the iPhone sizes on purpose. Do not go looking for a CarPlay slot to
+upload it to.
+
+CarPlay head units vary by vehicle and there is no single correct aspect. Apple ships
+five presets in `CarPlay Simulator.app/Contents/Resources/VehicleConfigs`:
+
+| Preset | Pixels | Ratio |
+|---|---|---|
+| Minimum | 748×456 | ~1.64 |
+| **Standard** (default here) | **800×480** | 5:3 |
+| Widescreen | 1920×720 | 8:3 |
+| Portrait | 900×1200 | 3:4 |
+| Standard Video Playback | 1920×1080 | 16:9 |
+
+Change `CARPLAY_RATIO` in `src/lib/constants.ts` to target a different one.
+
+### Landscape devices are contained, not bled off the edge
+
+Phones and tablets are deliberately hung past the canvas edge so they bleed off it.
+That same overhang **crops** a landscape device, and a clipped television or head unit
+reads as a mistake rather than a design. `getDefaultRects` takes a `contain` flag,
+set for `tvos` and `carplay`, which keeps every device rect inside the canvas.
+Apple Watch is portrait and does not need it.
+
+## Desktop device notes
+
+macOS and Windows canvases are designed at 16:10 and 16:9 respectively, framed with
+`MacOSWindow` / `WindowsWindow` in `device-frames.tsx` (traffic-light chrome for
+macOS, a flat titlebar for Windows). `split-landscape` and `device-top` both read well
+for desktop decks — lead with a wide hero shot, then a flipped-contrast slide.
+Desktop devices use the same `contain` treatment as Apple TV/CarPlay so the window
+never bleeds off the canvas edge.

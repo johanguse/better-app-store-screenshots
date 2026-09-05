@@ -4,11 +4,16 @@ export type Device =
   | "android"
   | "android-7"
   | "android-10"
-  | "feature-graphic";
+  | "feature-graphic"
+  | "tvos"
+  | "watchos"
+  | "carplay"
+  | "macos"
+  | "windows";
 
 export type Orientation = "portrait" | "landscape";
 
-export type Platform = "ios" | "android";
+export type Platform = "ios" | "android" | "desktop";
 
 // Layouts the editor can render. Vary across slides for visual rhythm.
 export type SlideLayout =
@@ -32,7 +37,8 @@ export type ElementTransform = {
 
 export type BuiltInElementId = "caption" | "device" | "deviceSecondary";
 export type TextElementId = `text:${string}`;
-export type ElementId = BuiltInElementId | TextElementId;
+export type ImageElementId = `image:${string}`;
+export type ElementId = BuiltInElementId | TextElementId | ImageElementId;
 
 export type SelectedElement = {
   slideId: string;
@@ -55,6 +61,26 @@ export type TextElement = {
   align?: "left" | "center" | "right";
 };
 
+export type ImageElement = {
+  id: string;
+  src: string;
+  transform: ElementTransform;
+  fit?: "cover" | "contain";
+  fade?: {
+    edge: "top" | "bottom" | "left" | "right";
+    amount: number;
+  };
+};
+
+export type SlideTypography = {
+  /** Uppercase label above the headline (default 1). */
+  labelScale?: number;
+  /** Main headline, or feature-graphic tagline (default 1). */
+  headlineScale?: number;
+  /** Feature graphic app name only (default 1). */
+  appNameScale?: number;
+};
+
 export type Slide = {
   id: string;
   layout: SlideLayout;
@@ -63,9 +89,13 @@ export type Slide = {
   screenshot: string;         // path under /screenshots/ — may contain {locale}
   screenshotSecondary?: string; // for two-devices layout — may contain {locale}
   inverted?: boolean;         // dark background variant
+  backgroundColor?: string;   // per-slide hex color override
+  /** Optional relative font-size scales for built-in caption text. */
+  typography?: SlideTypography;
   // Per-element overrides; when present, replaces layout default placement.
   transforms?: Partial<Record<BuiltInElementId, ElementTransform>>;
   textElements?: TextElement[];
+  imageElements?: ImageElement[];
 };
 
 export type ThemeId =
@@ -86,6 +116,24 @@ export type Theme = {
   muted: string;
 };
 
+export type ScreenshotFontId =
+  | "template-serif"
+  | "system-sans"
+  | "classic-serif"
+  | "avenir-next"
+  | "helvetica-neue"
+  | "american-typewriter"
+  | "baskerville"
+  | "optima"
+  | "palatino"
+  | "futura"
+  | "self-hosted";
+
+export type ImportedFont = {
+  src: string;
+  format: "woff2" | "woff" | "truetype" | "opentype";
+};
+
 export type ProjectState = {
   schemaVersion?: number;
   appName: string;
@@ -101,4 +149,6 @@ export type ProjectState = {
   // Per-device slide decks so platform switching preserves work
   slidesByDevice: Record<Device, Slide[]>;
   appIcon?: string;    // path under /public (e.g. /app-icon.png)
+  fontId?: ScreenshotFontId;
+  importedFont?: ImportedFont;
 };

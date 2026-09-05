@@ -8,6 +8,7 @@ import {
   ArrowUpToLine,
   ChevronDown,
   ChevronUp,
+  ImagePlus,
   Plus,
   RotateCw,
   Trash2,
@@ -27,22 +28,35 @@ import { Textarea } from "@/components/ui/textarea";
 import { LAYOUT_HINT, LAYOUT_LABEL } from "@/lib/constants";
 import { nid } from "@/lib/defaults";
 import {
+  imageElementKey,
   isBuiltInElementId,
+  isImageElementId,
   isTextElementId,
   textElementKey,
+  toImageElementId,
   toTextElementId,
 } from "@/lib/elements";
 import { pickText, writeLocalized } from "@/lib/locale";
+import {
+  cleanTypography,
+  FONT_SCALE_MAX,
+  FONT_SCALE_MIN,
+  slideFontScales,
+} from "@/lib/typography";
 import type {
   BuiltInElementId,
   Device,
   ElementId,
   ElementTransform,
+  ImageElement,
   Orientation,
   Slide,
   SlideLayout,
+  SlideTypography,
   TextElement,
+  Theme,
 } from "@/lib/types";
+import { BackgroundControls } from "./background-controls";
 import { ScreenshotPicker } from "./screenshot-picker";
 import { getCanvas, getElementTransform } from "./slide-canvas";
 
@@ -50,6 +64,7 @@ type Props = {
   slide: Slide;
   device: Device;
   orientation: Orientation;
+  theme: Theme;
   locale: string;
   selectedElementId: ElementId | null;
   onChange: (patch: Partial<Slide>) => void;
@@ -66,6 +81,7 @@ export function Inspector({
   slide,
   device,
   orientation,
+  theme,
   locale,
   selectedElementId,
   onChange,
@@ -137,6 +153,8 @@ export function Inspector({
           </Select>
         </div>
 
+        {!isFeatureGraphic && <BackgroundControls slide={slide} theme={theme} onChange={onChange} />}
+
         {!isFeatureGraphic && (
           <div className="space-y-1.5">
             <Label className="text-xs">Label</Label>
@@ -160,6 +178,8 @@ export function Inspector({
             placeholder={headlinePlaceholder}
           />
         </div>
+
+        <TypographySection slide={slide} isFeatureGraphic={isFeatureGraphic} onChange={onChange} />
 
         {!isFeatureGraphic && !isNoDevice && (
           <div className="space-y-1.5">
@@ -230,6 +250,7 @@ function ElementTransformControls({
   if (slide.layout !== "no-device") present.push("device");
   if (slide.layout === "two-devices") present.push("deviceSecondary");
   for (const element of slide.textElements || []) present.push(toTextElementId(element.id));
+  for (const element of slide.imageElements || []) present.push(toImageElementId(element.id));
 
   const transforms = slide.transforms || {};
   const activeId =
@@ -240,6 +261,10 @@ function ElementTransformControls({
   const activeTextElement =
     activeId && isTextElementId(activeId)
       ? slide.textElements?.find((element) => element.id === textElementKey(activeId))
+      : null;
+  const activeImageElement =
+    activeId && isImageElementId(activeId)
+      ? slide.imageElements?.find((element) => element.id === imageElementKey(activeId))
       : null;
 
   function getTransform(id: ElementId) {
@@ -254,6 +279,17 @@ function ElementTransformControls({
       onChange({
         textElements: (slide.textElements || []).map((element) =>
           element.id === textId
+            ? { ...element, transform: { ...element.transform, ...patch } }
+            : element,
+        ),
+      });
+      return;
+    }
+    if (isImageElementId(id)) {
+      const imageId = imageElementKey(id);
+      onChange({
+        imageElements: (slide.imageElements || []).map((element) =>
+          element.id === imageId
             ? { ...element, transform: { ...element.transform, ...patch } }
             : element,
         ),
@@ -286,6 +322,20 @@ function ElementTransformControls({
     onSelectElement(null);
   }
 
+  function patchImageElement(id: string, patch: Partial<ImageElement>) {
+    onChange({
+      imageElements: (slide.imageElements || []).map((element) =>
+        element.id === id ? { ...element, ...patch } : element,
+      ),
+    });
+  }
+
+  function deleteImageElement(element: ImageElement) {
+    const nextImageElements = (slide.imageElements || []).filter((item) => item.id !== element.id);
+    onChange({ imageElements: nextImageElements.length > 0 ? nextImageElements : undefined });
+    onSelectElement(null);
+  }
+
   function addTextElement() {
     const { cW, cH } = getCanvas(device, orientation);
     const id = nid();
@@ -313,6 +363,31 @@ function ElementTransformControls({
     onSelectElement(toTextElementId(id));
   }
 
+  function addImageElement() {
+    const { cW, cH } = getCanvas(device, orientation);
+    const id = nid();
+    const zIndex =
+      Math.max(
+        5,
+        ...present.map((elementId) => getTransform(elementId)?.zIndex ?? defaultZ(elementId)),
+      ) + 1;
+    const element: ImageElement = {
+      id,
+      src: "",
+      transform: {
+        x: cW * 0.25,
+        y: cH * 0.36,
+        width: cW * 0.5,
+        height: cW * 0.5,
+        rotation: 0,
+        zIndex,
+      },
+      fit: "cover",
+    };
+    onChange({ imageElements: [...(slide.imageElements || []), element] });
+    onSelectElement(toImageElementId(id));
+  }
+
   // Z-order: re-rank zIndex among present elements so they remain contiguous.
   function reorder(id: ElementId, dir: "front" | "back" | "up" | "down") {
     const ranked = [...present].sort((a, b) => {
@@ -335,6 +410,10 @@ function ElementTransformControls({
       ...element,
       transform: { ...element.transform },
     }));
+    const nextImageElements = (slide.imageElements || []).map((element) => ({
+      ...element,
+      transform: { ...element.transform },
+    }));
     ranked.forEach((eid, i) => {
       const cur = getTransform(eid);
       if (!cur) return;
@@ -342,11 +421,15 @@ function ElementTransformControls({
         const textId = textElementKey(eid);
         const textElement = nextTextElements.find((element) => element.id === textId);
         if (textElement) textElement.transform = { ...textElement.transform, zIndex: i + 1 };
+      } else if (isImageElementId(eid)) {
+        const imageId = imageElementKey(eid);
+        const imageElement = nextImageElements.find((element) => element.id === imageId);
+        if (imageElement) imageElement.transform = { ...imageElement.transform, zIndex: i + 1 };
       } else if (isBuiltInElementId(eid)) {
         nextTransforms[eid] = { ...cur, zIndex: i + 1 };
       }
     });
-    onChange({ transforms: nextTransforms, textElements: nextTextElements });
+    onChange({ transforms: nextTransforms, textElements: nextTextElements, imageElements: nextImageElements });
   }
 
   return (
@@ -370,6 +453,16 @@ function ElementTransformControls({
           <Plus className="h-3.5 w-3.5" />
           Text
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 shrink-0 px-2 text-xs"
+          onClick={addImageElement}
+        >
+          <ImagePlus className="h-3.5 w-3.5" />
+          Image
+        </Button>
       </div>
 
       {activeId ? (
@@ -377,6 +470,7 @@ function ElementTransformControls({
           activeId={activeId}
           transform={activeTransform}
           textElement={activeTextElement || undefined}
+          imageElement={activeImageElement || undefined}
           locale={locale}
           onRotate={(rotation) => patchElement(activeId, { rotation })}
           onReorder={(dir) => reorder(activeId, dir)}
@@ -388,6 +482,12 @@ function ElementTransformControls({
           }}
           onDeleteText={() => {
             if (activeTextElement) deleteTextElement(activeTextElement);
+          }}
+          onImagePatch={(patch) => {
+            if (activeImageElement) patchImageElement(activeImageElement.id, patch);
+          }}
+          onDeleteImage={() => {
+            if (activeImageElement) deleteImageElement(activeImageElement);
           }}
         />
       ) : (
@@ -403,22 +503,28 @@ function ActiveElementPanel({
   activeId,
   transform,
   textElement,
+  imageElement,
   locale,
   onRotate,
   onReorder,
   onTextChange,
   onTextPatch,
   onDeleteText,
+  onImagePatch,
+  onDeleteImage,
 }: {
   activeId: ElementId;
   transform: ElementTransform | undefined;
   textElement?: TextElement;
+  imageElement?: ImageElement;
   locale: string;
   onRotate: (rotation: number) => void;
   onReorder: (dir: "front" | "back" | "up" | "down") => void;
   onTextChange: (value: string) => void;
   onTextPatch: (patch: Partial<TextElement>) => void;
   onDeleteText: () => void;
+  onImagePatch: (patch: Partial<ImageElement>) => void;
+  onDeleteImage: () => void;
 }) {
   const engaged = !!transform;
   const rotation = transform?.rotation ?? 0;
@@ -428,17 +534,18 @@ function ActiveElementPanel({
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-1 text-xs font-medium">
           {textElement && <Type className="h-3.5 w-3.5" />}
+          {imageElement && <ImagePlus className="h-3.5 w-3.5" />}
           {label}
         </span>
-        {textElement ? (
+        {textElement || imageElement ? (
           <Button
             type="button"
             variant="ghost"
             size="icon"
             className="h-6 w-6 hover:text-destructive"
-            onClick={onDeleteText}
-            title="Delete text element"
-            aria-label="Delete text element"
+            onClick={textElement ? onDeleteText : onDeleteImage}
+            title={textElement ? "Delete text element" : "Delete image element"}
+            aria-label={textElement ? "Delete text element" : "Delete image element"}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
@@ -455,6 +562,8 @@ function ActiveElementPanel({
           onTextPatch={onTextPatch}
         />
       )}
+
+      {imageElement && <ImageElementPanel element={imageElement} onPatch={onImagePatch} />}
 
       <div className="space-y-1">
         <div className="flex items-center justify-between">
@@ -499,6 +608,73 @@ function ActiveElementPanel({
   );
 }
 
+function ImageElementPanel({
+  element,
+  onPatch,
+}: {
+  element: ImageElement;
+  onPatch: (patch: Partial<ImageElement>) => void;
+}) {
+  return (
+    <div className="space-y-2 rounded border bg-muted/30 p-2">
+      <div className="space-y-1">
+        <Label className="text-[11px] text-muted-foreground">Image</Label>
+        <ScreenshotPicker label="Overlay image" value={element.src} onChange={(src) => onPatch({ src })} />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-[11px] text-muted-foreground">Fit</Label>
+        <Select value={element.fit || "cover"} onValueChange={(fit) => onPatch({ fit: fit as ImageElement["fit"] })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="cover">Fill frame</SelectItem>
+            <SelectItem value="contain">Keep whole image</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1">
+        <Label className="text-[11px] text-muted-foreground">Edge fade</Label>
+        <Select
+          value={element.fade?.edge || "none"}
+          onValueChange={(edge) =>
+            onPatch({
+              fade:
+                edge === "none"
+                  ? undefined
+                  : { edge: edge as NonNullable<ImageElement["fade"]>["edge"], amount: element.fade?.amount || 35 },
+            })
+          }
+        >
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No fade</SelectItem>
+            <SelectItem value="top">Fade from top</SelectItem>
+            <SelectItem value="bottom">Fade from bottom</SelectItem>
+            <SelectItem value="left">Fade from left</SelectItem>
+            <SelectItem value="right">Fade from right</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {element.fade && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <Label className="text-[11px] text-muted-foreground">Fade strength</Label>
+            <span className="text-[11px] tabular-nums text-muted-foreground">{Math.round(element.fade.amount)}%</span>
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={100}
+            value={element.fade.amount}
+            onChange={(event) => onPatch({ fade: { ...element.fade!, amount: Number(event.target.value) } })}
+            className="w-full"
+            aria-label="Image edge fade reach"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TextElementPanel({
   element,
   locale,
@@ -524,7 +700,22 @@ function TextElementPanel({
       </div>
       <div className="grid grid-cols-[1fr_76px] gap-2">
         <div className="space-y-1">
-          <Label className="text-[11px] text-muted-foreground">Size</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-[11px] text-muted-foreground">Size</Label>
+            <span className="text-[11px] tabular-nums text-muted-foreground">
+              {Math.round(element.fontSize || 72)}px
+            </span>
+          </div>
+          <input
+            type="range"
+            min={12}
+            max={400}
+            step={1}
+            value={Math.round(element.fontSize || 72)}
+            onChange={(event) => onTextPatch({ fontSize: Number(event.target.value) || 72 })}
+            className="w-full"
+            aria-label="Text size"
+          />
           <Input
             type="number"
             min={12}
@@ -597,13 +788,107 @@ function LayerButton({
   );
 }
 
+function TypographySection({
+  slide,
+  isFeatureGraphic,
+  onChange,
+}: {
+  slide: Slide;
+  isFeatureGraphic: boolean;
+  onChange: (patch: Partial<Slide>) => void;
+}) {
+  const scales = slideFontScales(slide);
+
+  function patchTypography(patch: Partial<SlideTypography>) {
+    onChange({
+      typography: cleanTypography({ ...slide.typography, ...patch }),
+    });
+  }
+
+  return (
+    <div className="space-y-3 rounded-md border bg-muted/20 p-3">
+      <div>
+        <Label className="text-xs font-semibold">Typography</Label>
+        <p className="text-[11px] text-muted-foreground">
+          Relative to the layout default (100%). Applies to this screen only.
+        </p>
+      </div>
+      {!isFeatureGraphic && (
+        <FontScaleSlider
+          label="Label"
+          value={scales.labelScale}
+          onChange={(value) => patchTypography({ labelScale: value })}
+        />
+      )}
+      <FontScaleSlider
+        label={isFeatureGraphic ? "Tagline" : "Headline"}
+        value={scales.headlineScale}
+        onChange={(value) => patchTypography({ headlineScale: value })}
+      />
+      {isFeatureGraphic && (
+        <FontScaleSlider
+          label="App name"
+          value={scales.appNameScale}
+          onChange={(value) => patchTypography({ appNameScale: value })}
+        />
+      )}
+    </div>
+  );
+}
+
+function FontScaleSlider({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  const pct = Math.round(value * 100);
+  const minPct = Math.round(FONT_SCALE_MIN * 100);
+  const maxPct = Math.round(FONT_SCALE_MAX * 100);
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-[11px] text-muted-foreground">{label}</Label>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] tabular-nums text-muted-foreground">{pct}%</span>
+          {pct !== 100 ? (
+            <button
+              type="button"
+              className="text-[10px] text-muted-foreground underline-offset-2 hover:underline"
+              onClick={() => onChange(1)}
+            >
+              Reset
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <input
+        type="range"
+        min={minPct}
+        max={maxPct}
+        step={5}
+        value={pct}
+        onChange={(event) => onChange(Number(event.target.value) / 100)}
+        className="w-full"
+        aria-label={`${label} font size`}
+      />
+    </div>
+  );
+}
+
 function elementLabel(id: ElementId): string {
   if (isBuiltInElementId(id)) return ELEMENT_LABEL[id];
+  if (isImageElementId(id)) return "Image";
   return "Text";
 }
 
 function defaultZ(id: ElementId): number {
   if (isTextElementId(id)) return 5;
+  if (isImageElementId(id)) return 5;
   if (id === "deviceSecondary") return 2;
   if (id === "device") return 3;
   return 4; // caption on top

@@ -1,4 +1,4 @@
-import type { Device, Orientation, SlideLayout, Theme, ThemeId } from "./types";
+import type { Device, Orientation, ScreenshotFontId, SlideLayout, Theme, ThemeId } from "./types";
 
 // ---------- Canvas dimensions (design at largest required resolution) ----------
 export const CANVAS: Record<Device, { w: number; h: number; wL?: number; hL?: number }> = {
@@ -8,6 +8,11 @@ export const CANVAS: Record<Device, { w: number; h: number; wL?: number; hL?: nu
   "android-7":   { w: 1200, h: 1920, wL: 1920, hL: 1200 },
   "android-10":  { w: 1600, h: 2560, wL: 2560, hL: 1600 },
   "feature-graphic": { w: 1024, h: 500 },
+  tvos:          { w: 3840, h: 2160 },
+  watchos:       { w: 422, h: 514 },
+  carplay:       { w: 1320, h: 2868 },
+  macos:         { w: 2880, h: 1800 },
+  windows:       { w: 2560, h: 1440 },
 };
 
 // ---------- Export sizes per device ----------
@@ -28,6 +33,36 @@ export const EXPORT_SIZES: Record<Device, ExportSize[]> = {
   "android-7":   [{ label: '7" Portrait',    w: 1200, h: 1920 }],
   "android-10":  [{ label: '10" Portrait',   w: 1600, h: 2560 }],
   "feature-graphic": [{ label: "Feature Graphic", w: 1024, h: 500 }],
+  tvos: [
+    { label: "4K (3840 x 2160)", w: 3840, h: 2160 },
+    { label: "HD (1920 x 1080)", w: 1920, h: 1080 },
+  ],
+  watchos: [
+    { label: "Ultra (422 x 514)",    w: 422, h: 514 },
+    { label: "Ultra (410 x 502)",    w: 410, h: 502 },
+    { label: "Series 10 (416x496)",  w: 416, h: 496 },
+    { label: "Series 7 (396 x 484)", w: 396, h: 484 },
+    { label: "Series 4 (368 x 448)", w: 368, h: 448 },
+    { label: "Series 3 (312 x 390)", w: 312, h: 390 },
+  ],
+  // CarPlay has no App Store Connect display type of its own — a CarPlay app
+  // ships inside its iPhone app, so a CarPlay shot is submitted in an iPhone slot.
+  carplay: [
+    { label: '6.9"', w: 1320, h: 2868 },
+    { label: '6.5"', w: 1284, h: 2778 },
+    { label: '6.3"', w: 1206, h: 2622 },
+    { label: '6.1"', w: 1125, h: 2436 },
+  ],
+  macos: [
+    { label: "2880 × 1800", w: 2880, h: 1800 },
+    { label: "2560 × 1600", w: 2560, h: 1600 },
+    { label: "1440 × 900",  w: 1440, h: 900 },
+  ],
+  windows: [
+    { label: "2560 × 1440", w: 2560, h: 1440 },
+    { label: "1920 × 1080", w: 1920, h: 1080 },
+    { label: "1366 × 768",  w: 1366, h: 768 },
+  ],
 };
 
 // Landscape sizes (tablets only)
@@ -52,6 +87,10 @@ export const MK_RATIO    = 1022 / 2082; // iPhone PNG mockup
 export const TAB_P_RATIO = 0.667;        // tablet portrait
 export const TAB_L_RATIO = 1.5;          // tablet landscape
 export const IPAD_RATIO  = 0.770;        // iPad
+export const TV_RATIO    = 16 / 9;       // Apple TV — landscape only
+export const WATCH_RATIO = 422 / 514;    // Apple Watch Ultra, the largest accepted slot
+// CarPlay head units vary by vehicle; "Standard" (800x480) is Apple's default preset.
+export const CARPLAY_RATIO = 800 / 480;
 
 // iPhone mockup screen overlay (pre-measured)
 export const PHONE_SCREEN = {
@@ -79,6 +118,47 @@ export function tabletLW(cW: number, cH: number, clamp = 0.62) {
 export function ipadW(cW: number, cH: number, clamp = 0.75) {
   return Math.min(clamp, 0.72 * (cH / cW) * IPAD_RATIO);
 }
+// Clamped low so a 16:9 device clears the 0.28-height caption block on a 16:9 canvas.
+export function tvW(cW: number, cH: number, clamp = 0.58) {
+  return Math.min(clamp, 0.72 * (cH / cW) * TV_RATIO);
+}
+export function watchW(cW: number, cH: number, clamp = 0.52) {
+  return Math.min(clamp, 0.72 * (cH / cW) * WATCH_RATIO);
+}
+export function carPlayW(cW: number, cH: number, clamp = 0.86) {
+  return Math.min(clamp, 0.72 * (cH / cW) * CARPLAY_RATIO);
+}
+export function desktopW(cW: number, cH: number, aspect: number, clamp = 0.72) {
+  return Math.min(clamp, 0.68 * (cH / cW) * aspect);
+}
+
+export const DEFAULT_SCREENSHOT_FONT_ID: ScreenshotFontId = "system-sans";
+
+export const SCREENSHOT_FONTS: Record<ScreenshotFontId, { name: string; family: string }> = {
+  "template-serif": {
+    name: "Editorial Serif",
+    family: "Georgia, 'Times New Roman', serif",
+  },
+  "system-sans": {
+    name: "Modern Sans",
+    family: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+  },
+  "classic-serif": {
+    name: "Classic Serif",
+    family: "Georgia, 'Times New Roman', serif",
+  },
+  "avenir-next": { name: "Avenir Next", family: '"Avenir Next", Avenir, sans-serif' },
+  "helvetica-neue": { name: "Helvetica Neue", family: '"Helvetica Neue", Helvetica, Arial, sans-serif' },
+  "american-typewriter": { name: "American Typewriter", family: '"American Typewriter", Georgia, serif' },
+  "baskerville": { name: "Baskerville", family: "Baskerville, Georgia, serif" },
+  "optima": { name: "Optima", family: "Optima, 'Palatino Linotype', serif" },
+  "palatino": { name: "Palatino", family: "Palatino, 'Palatino Linotype', serif" },
+  "futura": { name: "Futura", family: "Futura, 'Trebuchet MS', sans-serif" },
+  "self-hosted": {
+    name: "Import a font",
+    family: '"CustomScreenshotFont", Georgia, serif',
+  },
+};
 
 // ---------- Themes ----------
 export const DEFAULT_THEME_ID: ThemeId = "clean-light";
@@ -154,6 +234,11 @@ export const DEVICE_LABEL: Record<Device, string> = {
   "android-7": 'Android 7" Tablet',
   "android-10": 'Android 10" Tablet',
   "feature-graphic": "Feature Graphic",
+  tvos: "Apple TV",
+  watchos: "Apple Watch",
+  carplay: "CarPlay (iPhone slot)",
+  macos: "macOS",
+  windows: "Windows",
 };
 
 // Friendly labels for slide layouts (used in dropdowns)

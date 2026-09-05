@@ -1,6 +1,10 @@
-# App Store & Google Play Screenshots Generator
+# App Store, Microsoft Store & Google Play Screenshots Generator
 
-A skill for AI coding agents that scaffolds a production-ready Next.js editor for App Store and Google Play marketing screenshots. It gives you a connected canvas, real device frames, inspector controls, persistent project state, and one-click export bundles at store-ready sizes.
+[github.com/johanguse/better-app-store-screenshots](https://github.com/johanguse/better-app-store-screenshots)
+
+A skill for AI coding agents that scaffolds a production-ready TanStack Start editor for App Store, Microsoft Store, and Google Play marketing screenshots. It gives you a connected canvas, real device frames, inspector controls, persistent project state, and one-click export bundles at store-ready sizes.
+
+Heavily inspired by [Parth Jadhav's app-store-screenshots](https://github.com/ParthJadhav/app-store-screenshots) project.
 
 ![Current connected-canvas editor showing a Bloom screenshot deck](example.png)
 
@@ -14,8 +18,8 @@ Example screenshots generated with this skill were accepted for [Bloom Coffee Sh
 - Keeps older projects safe with isolated-screen export mode until you opt into connected crops
 - Saves every deck to `app-store-screenshots.json`, so the project is git-trackable and resumable
 - Uploads picked screenshots into `public/screenshots/uploaded/<hash>.png`
-- Supports iOS, iPad, Android phone, Android tablet, and Play Store feature graphic decks
-- Exports exact PNG bundles for all required App Store and Google Play sizes
+- Supports iOS, iPad, Apple TV, Apple Watch, CarPlay, Android phone, Android tablet, macOS, Windows, and Play Store feature graphic decks
+- Exports PNG bundles at common App Store, Microsoft Store, and Google Play sizes
 - Supports locales, RTL-aware copy/layout guidance, reusable themes, and in-place project migration
 
 ## Current Editor UI
@@ -24,8 +28,8 @@ Example screenshots generated with this skill were accepted for [Bloom Coffee Sh
 - **Isolated mode** - preserve legacy decks where offscreen elements should not leak into neighboring exports.
 - **Screen sidebar** - add, select, and drag-to-reorder screens with live thumbnails.
 - **Inspector** - edit layout, labels, headlines, screenshots, element stacking, and transforms from the right panel.
-- **Platform switcher** - keep iOS and Android decks side by side while sharing the same editor workflow.
-- **Device selector** - design for iPhone, iPad, Android phone, Android tablets, and feature graphic formats.
+- **Platform switcher** - keep iOS, Android, and Desktop decks side by side while sharing the same editor workflow.
+- **Device selector** - design for iPhone, iPad, Apple TV, Apple Watch, CarPlay, Android phone, Android tablets, macOS, Windows, and feature graphic formats.
 - **Autosave** - writes to disk through `/api/project` and mirrors to `localStorage` for instant reloads.
 - **Export bundle** - downloads a zip organized by platform, device, resolution, and locale.
 
@@ -36,19 +40,19 @@ Tip: when capturing source iPhone screenshots, the 6.1-inch simulator is usually
 ### Using npx skills
 
 ```bash
-npx skills add ParthJadhav/app-store-screenshots
+npx skills add johanguse/better-app-store-screenshots
 ```
 
 Install globally:
 
 ```bash
-npx skills add ParthJadhav/app-store-screenshots -g
+npx skills add johanguse/better-app-store-screenshots -g
 ```
 
 Install for a specific agent:
 
 ```bash
-npx skills add ParthJadhav/app-store-screenshots -a claude-code
+npx skills add johanguse/better-app-store-screenshots -a claude-code
 ```
 
 This works with Claude Code, Cursor, Windsurf, OpenCode, Codex, and other agents supported by [`skills`](https://github.com/vercel-labs/skills).
@@ -56,7 +60,7 @@ This works with Claude Code, Cursor, Windsurf, OpenCode, Codex, and other agents
 ### Manual install
 
 ```bash
-git clone https://github.com/ParthJadhav/app-store-screenshots ~/.claude/skills/app-store-screenshots
+git clone https://github.com/johanguse/better-app-store-screenshots ~/.claude/skills/app-store-screenshots
 ```
 
 ## Usage
@@ -102,7 +106,7 @@ Make sure Arabic slides feel RTL-native, not just translated.
 
 ## What Gets Scaffolded
 
-If starting from an empty folder, the skill creates a Next.js project like this:
+If starting from an empty folder, the skill creates a TanStack Start project like this:
 
 ```text
 project/
@@ -119,14 +123,22 @@ project/
 │           ├── tablet-10/landscape/{locale}/01.png
 │           └── feature-graphic/{locale}/01.png
 ├── app-store-screenshots.json
-├── src/app/
-│   ├── layout.tsx
-│   └── page.tsx
+├── vite.config.ts
+├── src/router.tsx
+├── src/routes/
+│   ├── __root.tsx
+│   ├── index.tsx
+│   └── api/
+│       ├── project.ts
+│       ├── upload.ts
+│       └── upload-font.ts
 ├── src/components/editor/
 │   ├── screenshot-editor.tsx
 │   ├── toolbar.tsx
 │   ├── sidebar.tsx
 │   ├── inspector.tsx
+│   ├── background-controls.tsx
+│   ├── font-importer.tsx
 │   ├── preview-stage.tsx
 │   ├── slide-canvas.tsx
 │   ├── screenshot-picker.tsx
@@ -136,6 +148,8 @@ project/
     ├── defaults.ts
     ├── storage.ts
     ├── image-cache.ts
+    ├── request-guard.ts
+    ├── preflight.ts
     └── types.ts
 ```
 
@@ -197,7 +211,7 @@ Screenshots are designed at the largest size for each platform and scaled down f
 
 | Dependency | Purpose |
 |------------|---------|
-| Next.js | Dev server and app shell |
+| TanStack Start + Vite | Dev server, file-based routing, and app shell |
 | React | Editor UI |
 | TypeScript | Project and slide state safety |
 | Tailwind CSS | Styling |
@@ -222,4 +236,4 @@ MIT
 
 ## Author
 
-Created by [Parth Jadhav](https://www.parthjadhav.com/).
+Created by Parth Jadhav - Converted to TanStack by Johan Guse.
